@@ -255,6 +255,9 @@
             }
 
             let expectedWorkflow = expectations.expectedWorkflows.remove(at: workflowIndex)
+
+            expectedWorkflow.assertions(workflow)
+
             if let childOutput = expectedWorkflow.output as? Child.Output {
                 apply(action: outputMap(childOutput))
             }
