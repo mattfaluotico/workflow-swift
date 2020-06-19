@@ -23,6 +23,7 @@
 
     import ReactiveSwift
     import class Workflow.Lifetime
+    import WorkflowReactiveSwift
     import XCTest
 
     extension Workflow {
@@ -206,7 +207,6 @@
             file: StaticString = #file, line: UInt = #line,
             expectedState: ExpectedState<WorkflowType>? = nil,
             expectedOutput: ExpectedOutput<WorkflowType>? = nil,
-            expectedWorkers: [ExpectedWorker] = [],
             expectedWorkflows: [ExpectedWorkflow] = [],
             expectedSideEffects: [ExpectedSideEffect<WorkflowType>] = [],
             assertions: (WorkflowType.Rendering) -> Void
@@ -214,7 +214,6 @@
             let expectations = RenderExpectations(
                 expectedState: expectedState,
                 expectedOutput: expectedOutput,
-                expectedWorkers: expectedWorkers,
                 expectedWorkflows: expectedWorkflows,
                 expectedSideEffects: expectedSideEffects
             )
@@ -277,19 +276,19 @@
             return sink
         }
 
-        func awaitResult<W, Action>(for worker: W, outputMap: @escaping (W.Output) -> Action) where W: ReactiveSwiftWorker, Action: WorkflowAction, RenderTestContext<T>.WorkflowType == Action.WorkflowType {
-            guard let workerIndex = expectations.expectedWorkers.firstIndex(where: { (expectedWorker) -> Bool in
-                expectedWorker.isEquivalent(to: worker)
-            }) else {
-                XCTFail("Unexpected worker during render \(worker)", file: file, line: line)
-                return
-            }
-
-            let expectedWorker = expectations.expectedWorkers.remove(at: workerIndex)
-            if let action = expectedWorker.outputAction(outputMap: outputMap) {
-                apply(action: action)
-            }
-        }
+//        func awaitResult<W, Action>(for worker: W, outputMap: @escaping (W.Output) -> Action) where W: ReactiveSwiftWorker, Action: WorkflowAction, RenderTestContext<T>.WorkflowType == Action.WorkflowType {
+//            guard let workerIndex = expectations.expectedWorkers.firstIndex(where: { (expectedWorker) -> Bool in
+//                expectedWorker.isEquivalent(to: worker)
+//            }) else {
+//                XCTFail("Unexpected worker during render \(worker)", file: file, line: line)
+//                return
+//            }
+//
+//            let expectedWorker = expectations.expectedWorkers.remove(at: workerIndex)
+//            if let action = expectedWorker.outputAction(outputMap: outputMap) {
+//                apply(action: action)
+//            }
+//        }
 
         func runSideEffect(key: AnyHashable, action: (Lifetime) -> Void) {
             guard let sideEffect = expectations.expectedSideEffects.removeValue(forKey: key) else {
@@ -329,11 +328,11 @@
                 XCTFail("Expected output of '\(outputExpectation.output)' but received none.", file: file, line: line)
             }
 
-            if !expectations.expectedWorkers.isEmpty {
-                for expectedWorker in expectations.expectedWorkers {
-                    XCTFail("Expected worker \(expectedWorker.worker)", file: file, line: line)
-                }
-            }
+//            if !expectations.expectedWorkers.isEmpty {
+//                for expectedWorker in expectations.expectedWorkers {
+//                    XCTFail("Expected worker \(expectedWorker.worker)", file: file, line: line)
+//                }
+//            }
 
             if !expectations.expectedWorkflows.isEmpty {
                 for expectedWorkflow in expectations.expectedWorkflows {

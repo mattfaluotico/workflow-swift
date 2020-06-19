@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Foundation
 import ReactiveSwift
 import Workflow
 
@@ -44,7 +45,7 @@ extension ReactiveSwiftWorker {
     }
 }
 
-private struct SignalProducerWorkerWorkflow<WorkerType: ReactiveSwiftWorker>: Workflow {
+internal struct SignalProducerWorkerWorkflow<WorkerType: ReactiveSwiftWorker>: Workflow {
     var worker: WorkerType
 
     typealias Output = WorkerType.Output

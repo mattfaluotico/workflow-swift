@@ -21,21 +21,18 @@ import Workflow
 public struct RenderExpectations<WorkflowType: Workflow> {
     var expectedState: ExpectedState<WorkflowType>?
     var expectedOutput: ExpectedOutput<WorkflowType>?
-    var expectedWorkers: [ExpectedWorker]
     var expectedWorkflows: [ExpectedWorkflow]
     var expectedSideEffects: [AnyHashable: ExpectedSideEffect<WorkflowType>]
 
     public init(
         expectedState: ExpectedState<WorkflowType>? = nil,
         expectedOutput: ExpectedOutput<WorkflowType>? = nil,
-        expectedWorkers: [ExpectedWorker] = [],
         expectedWorkflows: [ExpectedWorkflow] = [],
         expectedSideEffects: [ExpectedSideEffect<WorkflowType>] = []
     ) {
         self.expectedState = expectedState
         self.expectedOutput = expectedOutput
         self.expectedWorkflows = expectedWorkflows
-        self.expectedWorkers = expectedWorkers
         self.expectedSideEffects = expectedSideEffects.reduce(into: [AnyHashable: ExpectedSideEffect<WorkflowType>]()) { res, expectedSideEffect in
             res[expectedSideEffect.key] = expectedSideEffect
         }
@@ -76,34 +73,6 @@ public struct ExpectedState<WorkflowType: Workflow> {
     }
 }
 
-public struct ExpectedWorker {
-    let worker: Any
-    private let output: Any?
-
-    /// Create a new expected worker with an optional output. If `output` is not nil, it will be emitted
-    /// when this worker is declared in the render pass.
-    public init<WorkerType: Worker>(worker: WorkerType, output: WorkerType.Output? = nil) {
-        self.worker = worker
-        self.output = output
-    }
-
-    func isEquivalent<WorkerType: Worker>(to actual: WorkerType) -> Bool {
-        guard let expectedWorker = worker as? WorkerType else {
-            return false
-        }
-
-        return expectedWorker.isEquivalent(to: actual)
-    }
-
-    func outputAction<Output, ActionType>(outputMap: (Output) -> ActionType) -> ActionType? where ActionType: WorkflowAction {
-        guard let output = output as? Output else {
-            return nil
-        }
-
-        return outputMap(output)
-    }
-}
-
 public struct ExpectedSideEffect<WorkflowType: Workflow> {
     let key: AnyHashable
     let action: ((RenderContext<WorkflowType>) -> Void)?
@@ -127,11 +96,50 @@ public struct ExpectedWorkflow {
     let key: String
     let rendering: Any
     let output: Any?
+    let assertions: (Any) -> Void
 
-    public init<WorkflowType: Workflow>(type: WorkflowType.Type, key: String = "", rendering: WorkflowType.Rendering, output: WorkflowType.Output? = nil) {
+    public init<WorkflowType: Workflow>(
+        type: WorkflowType.Type,
+        key: String = "",
+        rendering: WorkflowType.Rendering,
+        output: WorkflowType.Output? = nil,
+        assertions: @escaping (WorkflowType) -> Void = { _ in }
+    ) {
         self.workflowType = type
         self.key = key
         self.rendering = rendering
         self.output = output
+        self.assertions = { workflow in
+            guard let workflow = workflow as? WorkflowType else {
+                fatalError("RenderTester is broken")
+            }
+            assertions(workflow)
+        }
+    }
+}
+
+import XCTest
+// bc: This extension should probably go into a WorkflowReactiveSwiftTesting
+@testable import WorkflowReactiveSwift
+
+extension ExpectedWorkflow {
+    public init<WorkerType: ReactiveSwiftWorker>(
+        worker: WorkerType,
+        key: String = "",
+        output: WorkerType.Output? = nil,
+        // bc: Maybe we don’t need this, but being able to do additional assertions might be handy?
+        assertions: @escaping (WorkerType) -> Void = { _ in }
+    ) {
+        self.init(
+            type: SignalProducerWorkerWorkflow<WorkerType>.self,
+            key: key,
+            rendering: (),
+            output: output,
+            assertions: { workerWorkflow in
+                let actualWorker = workerWorkflow.worker
+                XCTAssertTrue(worker.isEquivalent(to: actualWorker))
+                assertions(actualWorker)
+            }
+        )
     }
 }
