@@ -153,4 +153,13 @@ extension AnyWorkflowConvertible {
     public func mapRendering<NewRendering>(_ transform: @escaping (Rendering) -> NewRendering) -> AnyWorkflow<NewRendering, Output> {
         return asAnyWorkflow().mapRendering(transform)
     }
+
+    /// Transform's the output of the current workflow to the output of another Workflow.
+    /// effectively reacting an AnyWorkflowAction sending the desired output
+    public func forwardingOutput<Parent: Workflow>(_ transform: @escaping (Output) -> Parent.Output) -> AnyWorkflow<Rendering, AnyWorkflowAction<Parent>> {
+        return asAnyWorkflow().mapOutput { output in
+            let parentWorkflowOutput = transform(output)
+            return AnyWorkflowAction<Parent>(sendingOutput: parentWorkflowOutput)
+        }
+    }
 }
